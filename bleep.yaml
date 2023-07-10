@@ -1,0 +1,78 @@
+# yaml-language-server: $schema: https://raw.githubusercontent.com/oyvindberg/bleep/master/schema.json
+$schema: https://raw.githubusercontent.com/oyvindberg/bleep/master/schema.json
+$version: 0.0.2
+jvm:
+  name: temurin:1.17
+projects: 
+  core:
+    extends: template-common
+
+  core-tests:
+    dependsOn: core
+    dependencies:
+      - commons-codec:commons-codec:1.15
+    extends: 
+      - template-common
+      - template-tests
+
+  core-benches:
+    dependsOn: core 
+    extends: 
+      - template-common 
+      - template-benchmarks
+
+  core-benchmarks-runner:
+    dependsOn: core-benches
+    extends: template-common
+    platform:
+      mainClass: org.openjdk.jmh.Main 
+    sourcegen: 
+      project: core-benches
+      main: fr.hammons.xperimenta.GenJmh
+
+  plugins:
+    dependencies:
+      - fr.hammons::scoverage:0.0.0+1-93d77daa+20230629-1154-SNAPSHOT
+      - fr.hammons::bleep-jmh:0.0.0+2-4d508826+20230704-1232-SNAPSHOT
+    extends: template-base
+
+scripts:
+  scoverage-report: plugins/fr.hammons.bleep.scoverage.ScoverageReport
+  jmh-run: plugins/fr.hammons.bleep.jmh.JmhRun
+    
+templates: 
+  template-base: 
+    platform: 
+      name: jvm 
+    scala: 
+      version: 3.3.0
+  template-common:
+    platform:
+      name: jvm
+    scala:
+      version: 3.3.0
+      option:
+        - -deprecation
+        - -Wunused
+        - -Wvalue-discard
+        - -feature
+        - -unchecked
+        - -Xcheck-macros
+        - -Xprint-suspension
+        - -Yexplicit-nulls
+        - -Ysafe-init
+        - -source:future
+        - -Ykind-projector
+        - -Vprofile
+  template-tests:
+    dependencies:
+      - org.scalameta::munit-scalacheck:1.0.0-M8
+      - org.scalameta::munit:1.0.0-M8
+    isTestProject: true
+
+  template-benchmarks:
+    dependencies:
+      - org.openjdk.jmh:jmh-core:1.36
+      - org.openjdk.jmh:jmh-generator-bytecode:1.36
+      - build.bleep::bleep-core:${BLEEP_VERSION}
+
