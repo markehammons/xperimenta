@@ -146,6 +146,5 @@ class PTHashSpec extends munit.ScalaCheckSuite:
             )
           } catch {
             case e =>
-              e.printStackTrace()
-              throw e
+              fail(e.getMessage())
           }
