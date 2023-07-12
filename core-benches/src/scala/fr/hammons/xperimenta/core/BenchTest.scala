@@ -10,17 +10,29 @@ import org.openjdk.jmh.annotations.OutputTimeUnit
 import java.util.concurrent.TimeUnit
 import scala.util.Random
 
+import java.util.{HashMap as JHashMap}
+
 @BenchmarkMode(Array(Throughput))
 @State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 class BenchTest {
-  val keys = List.fill(2000)(Random.nextString(5))
-  val values = List.fill(2000)(Random.nextInt())
+  val num = 10000
+  val keys = List.fill(num)(Random.nextString(5))
+  val values = List.fill(num)(Random.nextInt())
   val map = keys.zip(values).toMap
 
-  val pthash = PTHash(keys.zip(values))
+  val pthash: PTHash[String, Int] = PTHash(keys.zip(values))
 
-  val key = keys.head
+  val jmap = 
+    val init = JHashMap[String, Int]()
+    keys.zip(values).foreach((k,v) => 
+      init.put(k,v)
+    )
+    init
+
+  val index = Random.nextInt(num)
+  val key = keys(index)
+  val value = values(index)
 
   @Benchmark
   def mapBench(blackhole: Blackhole) =
@@ -29,4 +41,9 @@ class BenchTest {
   @Benchmark
   def ptHashBench(blackhole: Blackhole) =
     blackhole.consume(pthash(key))
+
+  @Benchmark 
+  def javaMapBench(blackhole: Blackhole) = 
+    val result = jmap.get(key)
+    blackhole.consume(result)
 }

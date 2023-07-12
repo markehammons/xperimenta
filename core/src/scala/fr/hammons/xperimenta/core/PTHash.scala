@@ -25,7 +25,7 @@ class PTHash[K, V](
 
 object PTHash:
 
-  def apply[K, V](keysAndValues: Iterable[(K, V)])(using
+  def apply[K, V, U <: Iterable[(K,V)]](keysAndValues: U)(using
       ClassTag[V]
   ): PTHash[K, V] =
     val n =
@@ -38,15 +38,18 @@ object PTHash:
 
     val s = Random.nextInt()
     val buckets = PTHash.mapping(keysAndValues.toArray, m, s, n)
-    val primes = PTHash.search(buckets, s, n)
+    val pilots = PTHash.search(buckets, s, n)
 
     val table = Array.ofDim[V](n)
 
+    println(keysAndValues)
     keysAndValues.foreach((k, v) =>
-      table(PTHash.position(k, PTHash.bucket(k, s, p1, p2, n, m), s, n)) = v
+      table(PTHash.position(k, pilots(PTHash.bucket(k, s, p1, p2, n, m)), s, n)) = v
     )
 
-    new PTHash(s, primes, table, p1, p2, m)
+    println(table.mkString(","))
+
+    new PTHash(s, pilots, table, p1, p2, m)
 
   def numBuckets(c: Int, elements: Int): Int =
     java.lang.Math
@@ -62,8 +65,6 @@ object PTHash:
     else
       val bucketPos =
         p2 + Math.floorMod(MurmurHash.hash32(element.hashCode(), s1), (m - p2))
-      if bucketPos < p2 then
-        println(s"bucket pos incorrect!! $bucketPos vs $p2")
       bucketPos
 
   def isSet1[A](element: A, s1: Int, p1: Int, n: Int): Boolean =
@@ -96,7 +97,6 @@ object PTHash:
     val start = System.currentTimeMillis()
     (f, System.currentTimeMillis() - start)
   def search[A](buckets: Array[Vector[A]], s1: Int, n: Int): Array[Int] =
-    if buckets.isEmpty then throw Error("cannot take this input")
 
     var taken = BitSet()
     var k = 0
@@ -104,22 +104,14 @@ object PTHash:
       buckets.zipWithIndex
         .sortBy((v, _) => v.size)
         .reverse
-        .zipWithIndex
         .view
-        .map { case ((bucket, num), position) =>
+        .map { case (bucket, num) =>
           var nTaken = taken
           var done = false
           val hashes =
             bucket.map(elem => MurmurHash.hash32(elem.hashCode(), s1))
-          val isSet1Values = bucket.map(isSet1(_, s1, (0.6 * n).toInt, n))
-          if isSet1Values.distinct.size > 1 then
-            println(s"sets mixed in bucket!!: ${isSet1Values}")
-          assert(
-            bucket.map(_.hashCode()).distinct == bucket.map(_.hashCode()),
-            "duplicate hashcodes found!!"
-          )
-          assert(hashes.distinct == hashes, "duplicate hashes found!!")
           if hashes.distinct != hashes then println("duplicate hashes found!!")
+
           while !done do
             val hashedK = MurmurHash.hash32(k, s1)
             var i = 0
@@ -133,7 +125,7 @@ object PTHash:
             if conflict then
               if k % 1_000_000 == 0 then
                 println(
-                  s"$k failed on the ${num}th bucket (${position}th searched) of ${buckets.size} $num with size ${bucket.size} on $i"
+                  s"$k failed on the ${num}th bucket of ${buckets.size} $num with size ${bucket.size} on $i"
                 )
                 if k > 100_000_000 then
                   println(s"n: $n")
@@ -158,6 +150,7 @@ object PTHash:
           num -> k
         }
         .sortBy((num, k) => num)
+        .tapEach((num, k) => println(num -> k))
         .map((num, k) => k)
         .toArray
     }

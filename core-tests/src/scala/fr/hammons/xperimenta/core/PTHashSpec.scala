@@ -5,7 +5,6 @@ import org.scalacheck.Prop.*
 import org.scalacheck.Gen
 import org.scalacheck.Arbitrary
 import java.util.UUID
-import fr.hammons.xperimenta.core.PTHash.position
 
 class PTHashSpec extends munit.ScalaCheckSuite:
   var diffPcts = Vector.empty[Double]
@@ -76,11 +75,13 @@ class PTHashSpec extends munit.ScalaCheckSuite:
       Arbitrary.arbitrary[Int],
       Arbitrary.arbitrary[Int]
     ): (key: UUID, num: Int, k: Int, s: Int) =>
+      val hash = MurmurHash.hash32(key.##, s)
+      val hashK = MurmurHash.hash32(k, s)
       assert(
-        PTHash.position(key, k, s, num) < num,
-        PTHash.position(key, k, s, num)
+        PTHash.optimizedPosition(hash, hashK, num) < num,
+        PTHash.optimizedPosition(hash, hashK, num)
       )
-      assert(PTHash.position(key, k, s, num) >= 0)
+      assert(PTHash.optimizedPosition(hash, hashK, num) >= 0)
 
   // property("position returns uniquish positions") {
   //   forAll(Gen.infiniteLazyList(Gen.uuid), Gen.choose(10,2000), Arbitrary.arbitrary[Int], Arbitrary.arbitrary[Int]): (keys: LazyList[UUID], num: Int, k: Int, s: Int) =>
@@ -88,63 +89,36 @@ class PTHashSpec extends munit.ScalaCheckSuite:
   //     assert(counts.forall(_._2 <= 10), counts)
   // }
 
-  property("search should find keys that work to produce unique positions"):
-    forAll(Gen.infiniteLazyList(Gen.uuid), Gen.choose(1, 3_000)):
-      (keyStream: LazyList[UUID], num: Int) =>
-        val keys = keyStream.take(num).zip(keyStream.take(num))
+  property("PTHash should store keys and values properly"):
+    forAll(
+      Gen.infiniteLazyList(Arbitrary.arbitrary[UUID]),
+      Gen.infiniteLazyList(Arbitrary.arbitrary[UUID]),
+      Gen.choose(1, 25)
+    ): (keys, values, num) =>
+        println("starting")
+        val ks = keys.take(num).toList
+        val list = ks.zip(values).take(num).toList
+        val map = list.toMap
+        println("starting construction")
+        println(s"$ks, $list, $map")
+        if num == 0 then 
+          fail("cannot work on 0")
+        val ptHash = PTHash(list)
 
-        println("keys done")
-        if num <= 0 then
-          println(s"num invalid $num")
-          assert(true)
-        else
-          try {
-            if keys.distinct.toList != keys.toList then assert(true)
+        println("pthash constructed")
 
-            val n =
-              if keys.size % 2 == 0 then keys.size + 1
-              else keys.size
-            val m = PTHash.numBuckets(5, n)
-            println(s"$m buckets")
-            val s = Random.nextInt
+        ks.foreach(k => 
+          println(ptHash(k))
+          assertEquals(ptHash(k), map(k))
+        )
+        println("assertions complete")
 
-            val buckets = PTHash.mapping(keys.toArray, m, s, n)
-            println("buckets done")
+  test("PTHash should store keys and values properly specific 1"):
+    val list = List(("d2b13df8-1619-4e8a-b4f5-c0b83330cc3e","f9d3cde3-c94e-4789-af4b-890e9eac1686"), ("84f5c0b8-3330-4c3e-84a2-a9e17861cb23","7f4b890e-9eac-4686-b67a-e210a2d981ce"), ("e4a2a9e1-7861-4b23-b3ad-51e5a2cf3b8c","567ae210-a2d9-41ce-bf55-031d8d7bebff"), ("e3ad51e5-a2cf-4b8c-9252-3a6360bb65bf","8f55031d-8d7b-4bff-a310-6f9539542d1b"), ("b2523a63-60bb-45bf-adf4-2ca57678b681","c3106f95-3954-4d1b-bd26-c0d538953082"), ("5df42ca5-7678-4681-a37b-c097ed76669a","ad26c0d5-3895-4082-b442-0e724c0e991f"), ("637bc097-ed76-469a-9436-cbf73f338fc2","b4420e72-4c0e-491f-8450-61ad606ac5eb"), ("a436cbf7-3f33-4fc2-bcef-a151f3a9b68d","345061ad-606a-45eb-a631-251bd5dafd64"), ("1cefa151-f3a9-468d-b4a2-e157c2f14f6f","2631251b-d5da-4d64-83ae-23a398b239f2"), ("a4a2e157-c2f1-4f6f-bf43-a4ce820ce73f","53ae23a3-98b2-49f2-bda8-bc6dbbf3caa4")).map((k,v) => UUID.fromString(k) -> UUID.fromString(v))
 
-            val primes = PTHash.search(buckets, s, n)
+    val map = list.toMap
+    val ptHash = PTHash(list)
+    val keys = list.map(_._1)
 
-            val missing = buckets
-              .zip(primes)
-              .flatMap((bucket, prime) =>
-                bucket.map(PTHash.position(_, prime, s, n))
-              )
-              .distinct
-              .sorted
-              .diff(0 until n)
-              .toList
-            if missing.size > 1 then
-              println("fail")
-              println(missing)
-              println(missing.size <= 1)
-              println(keys)
-              println(
-                buckets
-                  .zip(primes)
-                  .flatMap((bucket, prime) =>
-                    bucket.map(k => PTHash.position(k, prime, s, n) -> k)
-                  )
-                  .sortBy((pos, _) => pos)
-                  .toList
-              )
-              println(num)
-              println(n)
-
-            println(missing)
-            assert(
-              missing.size <= 1,
-              missing
-            )
-          } catch {
-            case e =>
-              fail(e.getMessage())
-          }
+    keys.foreach: k =>
+      assertEquals(ptHash(k), map(k))
