@@ -95,26 +95,66 @@ class PTHashSpec extends munit.ScalaCheckSuite:
       Gen.infiniteLazyList(Arbitrary.arbitrary[UUID]),
       Gen.choose(1, 25)
     ): (keys, values, num) =>
-        println("starting")
-        val ks = keys.take(num).toList
-        val list = ks.zip(values).take(num).toList
-        val map = list.toMap
-        println("starting construction")
-        println(s"$ks, $list, $map")
-        if num == 0 then 
-          fail("cannot work on 0")
-        val ptHash = PTHash(list)
+      println("starting")
+      val ks = keys.take(num).toList
+      val list = ks.zip(values).take(num).toList
+      val map = list.toMap
+      println("starting construction")
+      println(s"$ks, $list, $map")
+      if num == 0 then fail("cannot work on 0")
+      val ptHash = PTHash(list)
 
-        println("pthash constructed")
+      println("pthash constructed")
 
-        ks.foreach(k => 
-          println(ptHash(k))
-          assertEquals(ptHash(k), map(k))
-        )
-        println("assertions complete")
+      ks.foreach(k =>
+        println(ptHash(k))
+        assertEquals(ptHash(k), map(k))
+      )
+      println("assertions complete")
 
   test("PTHash should store keys and values properly specific 1"):
-    val list = List(("d2b13df8-1619-4e8a-b4f5-c0b83330cc3e","f9d3cde3-c94e-4789-af4b-890e9eac1686"), ("84f5c0b8-3330-4c3e-84a2-a9e17861cb23","7f4b890e-9eac-4686-b67a-e210a2d981ce"), ("e4a2a9e1-7861-4b23-b3ad-51e5a2cf3b8c","567ae210-a2d9-41ce-bf55-031d8d7bebff"), ("e3ad51e5-a2cf-4b8c-9252-3a6360bb65bf","8f55031d-8d7b-4bff-a310-6f9539542d1b"), ("b2523a63-60bb-45bf-adf4-2ca57678b681","c3106f95-3954-4d1b-bd26-c0d538953082"), ("5df42ca5-7678-4681-a37b-c097ed76669a","ad26c0d5-3895-4082-b442-0e724c0e991f"), ("637bc097-ed76-469a-9436-cbf73f338fc2","b4420e72-4c0e-491f-8450-61ad606ac5eb"), ("a436cbf7-3f33-4fc2-bcef-a151f3a9b68d","345061ad-606a-45eb-a631-251bd5dafd64"), ("1cefa151-f3a9-468d-b4a2-e157c2f14f6f","2631251b-d5da-4d64-83ae-23a398b239f2"), ("a4a2e157-c2f1-4f6f-bf43-a4ce820ce73f","53ae23a3-98b2-49f2-bda8-bc6dbbf3caa4")).map((k,v) => UUID.fromString(k) -> UUID.fromString(v))
+    val list = List(
+      (
+        "d2b13df8-1619-4e8a-b4f5-c0b83330cc3e",
+        "f9d3cde3-c94e-4789-af4b-890e9eac1686"
+      ),
+      (
+        "84f5c0b8-3330-4c3e-84a2-a9e17861cb23",
+        "7f4b890e-9eac-4686-b67a-e210a2d981ce"
+      ),
+      (
+        "e4a2a9e1-7861-4b23-b3ad-51e5a2cf3b8c",
+        "567ae210-a2d9-41ce-bf55-031d8d7bebff"
+      ),
+      (
+        "e3ad51e5-a2cf-4b8c-9252-3a6360bb65bf",
+        "8f55031d-8d7b-4bff-a310-6f9539542d1b"
+      ),
+      (
+        "b2523a63-60bb-45bf-adf4-2ca57678b681",
+        "c3106f95-3954-4d1b-bd26-c0d538953082"
+      ),
+      (
+        "5df42ca5-7678-4681-a37b-c097ed76669a",
+        "ad26c0d5-3895-4082-b442-0e724c0e991f"
+      ),
+      (
+        "637bc097-ed76-469a-9436-cbf73f338fc2",
+        "b4420e72-4c0e-491f-8450-61ad606ac5eb"
+      ),
+      (
+        "a436cbf7-3f33-4fc2-bcef-a151f3a9b68d",
+        "345061ad-606a-45eb-a631-251bd5dafd64"
+      ),
+      (
+        "1cefa151-f3a9-468d-b4a2-e157c2f14f6f",
+        "2631251b-d5da-4d64-83ae-23a398b239f2"
+      ),
+      (
+        "a4a2e157-c2f1-4f6f-bf43-a4ce820ce73f",
+        "53ae23a3-98b2-49f2-bda8-bc6dbbf3caa4"
+      )
+    ).map((k, v) => UUID.fromString(k) -> UUID.fromString(v))
 
     val map = list.toMap
     val ptHash = PTHash(list)

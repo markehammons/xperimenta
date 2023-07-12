@@ -14,18 +14,19 @@ class PTHash[K, V](
     p2: Int,
     m: Int
 ):
-  def apply(a: K): V = table(
-    PTHash.position(
-      a,
-      primes(PTHash.bucket(a, seed, p1, p2, table.length, m)),
-      seed,
-      table.length
+  def apply(a: K): V =
+    val hash = MurmurHash.hash32(a.##, seed)
+    table(
+      PTHash.optimizedPosition(
+        hash,
+        primes(PTHash.bucket(hash, seed, p1, p2, table.length, m)),
+        table.length
+      )
     )
-  )
 
 object PTHash:
 
-  def apply[K, V, U <: Iterable[(K,V)]](keysAndValues: U)(using
+  def apply[K, V, U <: Iterable[(K, V)]](keysAndValues: U)(using
       ClassTag[V]
   ): PTHash[K, V] =
     val n =
@@ -37,17 +38,23 @@ object PTHash:
     val p2 = (0.3 * m).toInt
 
     val s = Random.nextInt()
-    val buckets = PTHash.mapping(keysAndValues.toArray, m, s, n)
-    val pilots = PTHash.search(buckets, s, n)
+    val keyHashes =
+      keysAndValues.view.map(_._1).map(k => MurmurHash.hash32(k.##, s))
+    val buckets = PTHash.mapping(keyHashes, m, s, n)
+    val pilots = PTHash.search(buckets, s, n).map(MurmurHash.hash32(_, s))
 
     val table = Array.ofDim[V](n)
 
-    println(keysAndValues)
     keysAndValues.foreach((k, v) =>
-      table(PTHash.position(k, pilots(PTHash.bucket(k, s, p1, p2, n, m)), s, n)) = v
+      val hash = MurmurHash.hash32(k.##, s)
+      table(
+        PTHash.optimizedPosition(
+          hash,
+          pilots(PTHash.bucket(hash, s, p1, p2, n, m)),
+          n
+        )
+      ) = v
     )
-
-    println(table.mkString(","))
 
     new PTHash(s, pilots, table, p1, p2, m)
 
@@ -59,28 +66,27 @@ object PTHash:
       )
       .toInt
 
-  def bucket[A](element: A, s1: Int, p1: Int, p2: Int, n: Int, m: Int): Int =
-    if isSet1(element, s1, p1, n) then
-      Math.floorMod(MurmurHash.hash32(element.##, s1), p2)
+  def bucket(elementHash: Int, s1: Int, p1: Int, p2: Int, n: Int, m: Int): Int =
+    if isSet1(elementHash, s1, p1, n) then Math.floorMod(elementHash, p2)
     else
       val bucketPos =
-        p2 + Math.floorMod(MurmurHash.hash32(element.hashCode(), s1), (m - p2))
+        p2 + Math.floorMod(elementHash, (m - p2))
       bucketPos
 
-  def isSet1[A](element: A, s1: Int, p1: Int, n: Int): Boolean =
-    Math.floorMod(MurmurHash.hash32(element.hashCode(), s1), n) < p1
+  def isSet1[A](elementHash: Int, s1: Int, p1: Int, n: Int): Boolean =
+    Math.floorMod(elementHash, n) < p1
 
-  def mapping[K, V](
-      elements: Array[(K, V)],
+  def mapping(
+      keyHashes: Iterable[Int],
       m: Int,
       s1: Int,
       n: Int
-  ): Array[Vector[K]] =
-    val buckets = Array.fill(m)(Vector.empty[K])
+  ): Array[Vector[Int]] =
+    val buckets = Array.fill(m)(Vector.empty[Int])
     val p1 = (0.6 * n).toInt
     val p2 = (0.3 * m).toInt
 
-    elements.foreach(e => buckets(bucket(e._1, s1, p1, p2, n, m)) :+= e._1)
+    keyHashes.foreach(kh => buckets(bucket(kh, s1, p1, p2, n, m)) :+= kh)
 
     buckets
 
@@ -96,7 +102,7 @@ object PTHash:
   inline def time[A](inline f: A): (A, Long) =
     val start = System.currentTimeMillis()
     (f, System.currentTimeMillis() - start)
-  def search[A](buckets: Array[Vector[A]], s1: Int, n: Int): Array[Int] =
+  def search(buckets: Array[Vector[Int]], s1: Int, n: Int): Array[Int] =
 
     var taken = BitSet()
     var k = 0
@@ -108,8 +114,7 @@ object PTHash:
         .map { case (bucket, num) =>
           var nTaken = taken
           var done = false
-          val hashes =
-            bucket.map(elem => MurmurHash.hash32(elem.hashCode(), s1))
+          val hashes = bucket
           if hashes.distinct != hashes then println("duplicate hashes found!!")
 
           while !done do
@@ -150,7 +155,6 @@ object PTHash:
           num -> k
         }
         .sortBy((num, k) => num)
-        .tapEach((num, k) => println(num -> k))
         .map((num, k) => k)
         .toArray
     }

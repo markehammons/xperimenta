@@ -23,11 +23,9 @@ class BenchTest {
 
   val pthash: PTHash[String, Int] = PTHash(keys.zip(values))
 
-  val jmap = 
+  val jmap =
     val init = JHashMap[String, Int]()
-    keys.zip(values).foreach((k,v) => 
-      init.put(k,v)
-    )
+    keys.zip(values).foreach((k, v) => init.put(k, v))
     init
 
   val index = Random.nextInt(num)
@@ -42,8 +40,8 @@ class BenchTest {
   def ptHashBench(blackhole: Blackhole) =
     blackhole.consume(pthash(key))
 
-  @Benchmark 
-  def javaMapBench(blackhole: Blackhole) = 
+  @Benchmark
+  def javaMapBench(blackhole: Blackhole) =
     val result = jmap.get(key)
     blackhole.consume(result)
 }
